@@ -8,7 +8,8 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.web.SecurityFilterChain;
 
 /**
- * Test-specific security configuration that disables CSRF for integration tests.
+ * Test-specific security configuration that matches the main SecurityConfig
+ * but disables CSRF for easier testing.
  */
 @TestConfiguration
 @EnableWebSecurity
@@ -19,7 +20,8 @@ public class TestSecurityConfig {
     public SecurityFilterChain testSecurityFilterChain(HttpSecurity http) throws Exception {
         http
                 .authorizeHttpRequests(authz -> authz
-                        .anyRequest().authenticated()
+                        .requestMatchers("/number-verification/v0/verify").hasAuthority("SCOPE_phone")
+                        .anyRequest().denyAll()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> {})

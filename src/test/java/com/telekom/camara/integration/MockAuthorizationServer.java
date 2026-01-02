@@ -10,12 +10,9 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration;
 import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.context.annotation.Bean;
 import org.springframework.http.MediaType;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -31,10 +28,10 @@ import java.util.UUID;
 /**
  * Mock OAuth2 Authorization Server for testing purposes.
  * Provides JWKS endpoint and token generation capabilities.
+ * Security is disabled for this mock server.
  */
-@SpringBootApplication
+@SpringBootApplication(exclude = {SecurityAutoConfiguration.class})
 @RestController
-@EnableWebSecurity
 public class MockAuthorizationServer {
 
     private static RSAKey rsaKey;
@@ -60,20 +57,6 @@ public class MockAuthorizationServer {
         } catch (NoSuchAlgorithmException | JOSEException e) {
             throw new RuntimeException("Failed to initialize RSA keys", e);
         }
-    }
-
-    /**
-     * Security configuration to allow unauthenticated access to JWKS endpoint
-     */
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-                .authorizeHttpRequests(authz -> authz
-                        .requestMatchers("/.well-known/jwks.json").permitAll()
-                        .anyRequest().denyAll()
-                )
-                .csrf(csrf -> csrf.disable());
-        return http.build();
     }
 
     @GetMapping(value = "/.well-known/jwks.json", produces = MediaType.APPLICATION_JSON_VALUE)
