@@ -7,6 +7,9 @@ public class MockAuthServerRunner {
         MockAuthorizationServer server = new MockAuthorizationServer();
         server.start(port);
 
+        String scope = "number-verification:verify";
+        String audience = "http://localhost:8080/number-verification/v0/verify";
+        
         System.out.println("\n" + "=".repeat(60));
         System.out.println("Mock Authorization Server started successfully!");
         System.out.println("=".repeat(60));
@@ -15,7 +18,7 @@ public class MockAuthServerRunner {
         System.out.println("\nExample token generation:");
         System.out.println("  String token = server.generateValidToken(\"+1234567890\");");
         System.out.println("\nGenerated sample token:");
-        String sampleToken = server.generateValidToken("+1234567890");
+        String sampleToken = server.generateValidToken("+1234567890", scope, audience);
         System.out.println("  " + sampleToken);
         System.out.println("\nTest with curl:");
         System.out.println("  curl -X POST http://localhost:8080/number-verification/v0/verify \\");

@@ -1,17 +1,18 @@
 package com.telekom.camara.integration;
 
-import com.nimbusds.jose.JOSEException;
-import com.nimbusds.jose.JWSAlgorithm;
-import com.nimbusds.jose.JWSHeader;
+import com.nimbusds.jose.*;
+import com.nimbusds.jose.crypto.RSAEncrypter;
 import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
+import com.nimbusds.jwt.EncryptedJWT;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -31,6 +32,7 @@ import java.util.UUID;
  * Security is disabled for this mock server.
  */
 @SpringBootApplication(exclude = {SecurityAutoConfiguration.class})
+@Import(TestSecurityConfig.class)
 @RestController
 public class MockAuthorizationServer {
 
@@ -99,36 +101,48 @@ public class MockAuthorizationServer {
     }
 
     /**
-     * Generate a valid JWT token with the given phone number claim.
+     * Generate a valid JWT token with the given phone number claim, scope and audience.
      */
-    public String generateValidToken(String phoneNumber) {
-        return generateToken(phoneNumber, 3600); // Valid for 1 hour
+    public String generateValidToken(String phoneNumber, String scope, String audience) {
+        return generateToken(
+                phoneNumber,
+                300,
+                scope,
+                audience);
     }
 
     /**
      * Generate an expired JWT token.
      */
-    public String generateExpiredToken(String phoneNumber) {
-        return generateToken(phoneNumber, -3600); // Expired 1 hour ago
+    public String generateExpiredToken(String phoneNumber, String scope, String audience) {
+        return generateToken(phoneNumber,
+                -300,
+                scope,
+                audience);
     }
 
     /**
      * Generate a JWT token with custom expiration.
      */
-    private String generateToken(String phoneNumber, long expiresInSeconds) {
+    private String generateToken(
+            String phoneNumber,
+            long expiresInSeconds,
+            String scope,
+            String audience) {
         try {
             Instant now = Instant.now();
 
+            JWTClaimsSet subjectClaimSet = new JWTClaimsSet.Builder().claim("phone_number", phoneNumber).build();
+
+            String subject = encryptSubject(subjectClaimSet);
             JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
-                    .subject("user123")
+                    .subject(subject)
                     .issuer("http://localhost:" + serverPort)
-                    .audience("number-verification")
+                    .audience(audience)
                     .expirationTime(Date.from(now.plusSeconds(expiresInSeconds)))
-                    .notBeforeTime(Date.from(now))
                     .issueTime(Date.from(now))
                     .jwtID(UUID.randomUUID().toString())
-                    .claim("phone_number", phoneNumber)
-                    .claim("scope", "openid phone")
+                    .claim("scope", scope)
                     .build();
 
             SignedJWT signedJWT = new SignedJWT(
@@ -144,5 +158,17 @@ public class MockAuthorizationServer {
         } catch (JOSEException e) {
             throw new RuntimeException("Failed to generate token", e);
         }
+    }
+
+    private String encryptSubject(JWTClaimsSet jwtClaimsSet) throws JOSEException {
+        RSAEncrypter encrypter = new RSAEncrypter(rsaKey.toRSAPublicKey());
+        JWEHeader header = new JWEHeader(
+                JWEAlgorithm.RSA_OAEP_256,
+                EncryptionMethod.A128GCM
+        );
+        EncryptedJWT jwt = new EncryptedJWT(header, jwtClaimsSet);
+        jwt.encrypt(encrypter);
+
+        return jwt.serialize();
     }
 }
