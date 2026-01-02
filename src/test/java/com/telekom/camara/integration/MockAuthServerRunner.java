@@ -9,7 +9,7 @@ public class MockAuthServerRunner {
 
         String scope = "number-verification:verify";
         String audience = "http://localhost:8080/number-verification/v0/verify";
-        
+
         System.out.println("\n" + "=".repeat(60));
         System.out.println("Mock Authorization Server started successfully!");
         System.out.println("=".repeat(60));

@@ -11,8 +11,8 @@ import com.nimbusds.jwt.SignedJWT;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration;
+import org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration;
 import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -31,8 +31,10 @@ import java.util.UUID;
  * Provides JWKS endpoint and token generation capabilities.
  * Security is disabled for this mock server.
  */
-@SpringBootApplication(exclude = {SecurityAutoConfiguration.class})
-@Import(TestSecurityConfig.class)
+@SpringBootApplication(exclude = {
+        SecurityAutoConfiguration.class,
+        UserDetailsServiceAutoConfiguration.class
+})
 @RestController
 public class MockAuthorizationServer {
 
