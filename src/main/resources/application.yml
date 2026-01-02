@@ -1,0 +1,29 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /number-verification/vwip
+
+spring:
+  application:
+    name: number-verification-api
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Telekom MACE Authorization Server configuration
+          issuer-uri: https://auth.api.telekom.com/realms/dtmace
+          jwk-set-uri: https://auth.api.telekom.com/realms/dtmace/protocol/openid-connect/certs
+
+jwe:
+  decryption:
+    # Path to the private key for JWE decryption (PKCS#8 format)
+    private-key-path: ${JWE_PRIVATE_KEY_PATH:classpath:keys/jwe-private-key.pem}
+    # Algorithm used for key encryption
+    key-algorithm: ${JWE_KEY_ALGORITHM:RSA-OAEP-256}
+    # Algorithm used for content encryption
+    content-algorithm: ${JWE_CONTENT_ALGORITHM:A256GCM}
+
+logging:
+  level:
+    org.springframework.security: DEBUG
+    com.telekom.camara: DEBUG

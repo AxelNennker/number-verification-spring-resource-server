@@ -1,0 +1,24 @@
+server:
+  port: 0
+
+spring:
+  application:
+    name: number-verification-api-test
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Will be overridden in tests with @DynamicPropertySource
+          issuer-uri: http://localhost:18080
+          jwk-set-uri: http://localhost:18080/jwks
+
+jwe:
+  decryption:
+    private-key-path: classpath:test-keys/jwe-private-key.pem
+    key-algorithm: RSA-OAEP-256
+    content-algorithm: A256GCM
+
+logging:
+  level:
+    org.springframework.security: INFO
+    com.telekom.camara: DEBUG
