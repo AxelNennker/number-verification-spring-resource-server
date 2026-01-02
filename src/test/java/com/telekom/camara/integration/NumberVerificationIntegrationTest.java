@@ -6,17 +6,18 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@Import(TestSecurityConfig.class)
 class NumberVerificationIntegrationTest {
 
     @Autowired
@@ -59,7 +60,6 @@ class NumberVerificationIntegrationTest {
         String validToken = mockAuthServer.generateValidToken(phoneNumber);
 
         mockMvc.perform(post("/number-verification/v0/verify")
-                        .with(csrf())
                         .header("Authorization", "Bearer " + validToken)
                         .contentType("application/json")
                         .content("{\"phoneNumber\":\"" + phoneNumber + "\"}"))
@@ -74,7 +74,6 @@ class NumberVerificationIntegrationTest {
         String validToken = mockAuthServer.generateValidToken(tokenPhoneNumber);
 
         mockMvc.perform(post("/number-verification/v0/verify")
-                        .with(csrf())
                         .header("Authorization", "Bearer " + validToken)
                         .contentType("application/json")
                         .content("{\"phoneNumber\":\"" + requestPhoneNumber + "\"}"))
@@ -85,7 +84,6 @@ class NumberVerificationIntegrationTest {
     @Test
     void testVerifyPhoneNumber_withInvalidToken() throws Exception {
         mockMvc.perform(post("/number-verification/v0/verify")
-                        .with(csrf())
                         .header("Authorization", "Bearer invalid.token.here")
                         .contentType("application/json")
                         .content("{\"phoneNumber\":\"+1234567890\"}"))
@@ -95,7 +93,6 @@ class NumberVerificationIntegrationTest {
     @Test
     void testVerifyPhoneNumber_withoutToken() throws Exception {
         mockMvc.perform(post("/number-verification/v0/verify")
-                        .with(csrf())
                         .contentType("application/json")
                         .content("{\"phoneNumber\":\"+1234567890\"}"))
                 .andExpect(status().isUnauthorized());
@@ -107,7 +104,6 @@ class NumberVerificationIntegrationTest {
         String expiredToken = mockAuthServer.generateExpiredToken(phoneNumber);
 
         mockMvc.perform(post("/number-verification/v0/verify")
-                        .with(csrf())
                         .header("Authorization", "Bearer " + expiredToken)
                         .contentType("application/json")
                         .content("{\"phoneNumber\":\"" + phoneNumber + "\"}"))
