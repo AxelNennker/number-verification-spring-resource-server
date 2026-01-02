@@ -1,6 +1,7 @@
 package com.telekom.camara.integration;
 
 import com.nimbusds.jose.*;
+import com.nimbusds.jose.crypto.RSADecrypter;
 import com.nimbusds.jose.crypto.RSAEncrypter;
 import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jose.jwk.JWKSet;
@@ -233,6 +234,18 @@ public class MockAuthorizationServer {
             return encryptionKey.toPublicJWK();
         } catch (Exception e) {
             throw new RuntimeException("Failed to get public encryption key", e);
+        }
+    }
+
+    /**
+     * Get an RSADecrypter configured with the private encryption key for testing.
+     * This allows the resource server to decrypt JWEs during integration tests.
+     */
+    public RSADecrypter getJweDecrypter() {
+        try {
+            return new RSADecrypter(encryptionKey);
+        } catch (JOSEException e) {
+            throw new RuntimeException("Failed to create JWE decrypter", e);
         }
     }
 }
