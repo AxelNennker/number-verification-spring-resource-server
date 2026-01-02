@@ -19,7 +19,7 @@
     
     <properties>
         <java.version>17</java.version>
-        <nimbus-jose-jwt.version>9.47</nimbus-jose-jwt.version>
+        <nimbus-jose-jwt.version>10.6</nimbus-jose-jwt.version>
         <bouncycastle.version>1.79</bouncycastle.version>
     </properties>
     

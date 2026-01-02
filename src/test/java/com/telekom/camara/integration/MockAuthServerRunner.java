@@ -7,26 +7,53 @@ public class MockAuthServerRunner {
         MockAuthorizationServer server = new MockAuthorizationServer();
         server.start(port);
 
-        String scope = "number-verification:verify";
-        String audience = "http://localhost:8080/number-verification/v0/verify";
-
-        System.out.println("\n" + "=".repeat(60));
+        System.out.println("\n" + "=".repeat(80));
         System.out.println("Mock Authorization Server started successfully!");
-        System.out.println("=".repeat(60));
-        System.out.println("Port:     " + server.getPort());
-        System.out.println("JWKS URL: " + server.getJwksUrl());
-        System.out.println("\nExample token generation:");
-        System.out.println("  String token = server.generateValidToken(\"+1234567890\");");
-        System.out.println("\nGenerated sample token:");
-        String sampleToken = server.generateValidToken("+1234567890", scope, audience);
-        System.out.println("  " + sampleToken);
-        System.out.println("\nTest with curl:");
+        System.out.println("=".repeat(80));
+        System.out.println("Port:                " + server.getPort());
+        System.out.println("JWKS URL:            " + server.getJwksUrl());
+        System.out.println("OpenID Config:       http://localhost:" + server.getPort() + "/.well-known/openid-configuration");
+        System.out.println();
+        System.out.println("Public Encryption Key (for resource server configuration):");
+        System.out.println(server.getPublicEncryptionKey().toJSONString());
+        System.out.println();
+        System.out.println("Example token generation:");
+        System.out.println("  String token = server.generateValidToken(");
+        System.out.println("      \"+1234567890\",");
+        System.out.println("      \"number-verification:verify\",");
+        System.out.println("      \"/number-verification/v0/verify\"");
+        System.out.println("  );");
+        System.out.println();
+        System.out.println("Generated sample verify token:");
+        String verifyToken = server.generateValidToken(
+                "+1234567890",
+                "number-verification:verify",
+                "/number-verification/v0/verify"
+        );
+        System.out.println("  " + verifyToken);
+        System.out.println();
+        System.out.println("Generated sample device-phone-number token:");
+        String readToken = server.generateValidToken(
+                "+1234567890",
+                "number-verification:device-phone-number:read",
+                "/number-verification/v0/device-phone-number"
+        );
+        System.out.println("  " + readToken);
+        System.out.println();
+        System.out.println("Test verify endpoint with curl:");
         System.out.println("  curl -X POST http://localhost:8080/number-verification/v0/verify \\");
-        System.out.println("    -H \"Authorization: Bearer " + sampleToken + "\" \\");
+        System.out.println("    -H \"Authorization: Bearer " + verifyToken + "\" \\");
         System.out.println("    -H \"Content-Type: application/json\" \\");
         System.out.println("    -d '{\"phoneNumber\":\"+1234567890\"}'");
-        System.out.println("\nPress Ctrl+C to stop the server...");
-        System.out.println("=".repeat(60) + "\n");
+        System.out.println();
+        System.out.println("Test device-phone-number endpoint with curl:");
+        System.out.println("  curl -X POST http://localhost:8080/number-verification/v0/device-phone-number \\");
+        System.out.println("    -H \"Authorization: Bearer " + readToken + "\" \\");
+        System.out.println("    -H \"Content-Type: application/json\" \\");
+        System.out.println("    -d '{}'");
+        System.out.println();
+        System.out.println("Press Ctrl+C to stop the server...");
+        System.out.println("=".repeat(80) + "\n");
 
         // Keep the server running
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {

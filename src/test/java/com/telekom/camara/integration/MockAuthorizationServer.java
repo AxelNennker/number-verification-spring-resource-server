@@ -9,11 +9,13 @@ import com.nimbusds.jwt.EncryptedJWT;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration;
-import org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.http.MediaType;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -28,49 +30,90 @@ import java.util.UUID;
 
 /**
  * Mock OAuth2 Authorization Server for testing purposes.
- * Provides JWKS endpoint and token generation capabilities.
- * Security is disabled for this mock server.
+ * Provides JWKS endpoint, OpenID Configuration, and token generation capabilities.
+ * Generates access tokens with JWE-encrypted phone numbers in the subject claim.
  */
-@SpringBootApplication(exclude = {
-        SecurityAutoConfiguration.class,
-        UserDetailsServiceAutoConfiguration.class
-})
+@Configuration
+@EnableAutoConfiguration
 @RestController
 public class MockAuthorizationServer {
 
-    private static RSAKey rsaKey;
+    private static RSAKey signingKey;
+    private static RSAKey encryptionKey;
     private static RSASSASigner signer;
+    private static RSAEncrypter encrypter;
     private static int serverPort;
     private ConfigurableApplicationContext context;
 
     static {
         try {
-            // Generate RSA key pair
+            // Generate RSA key pair for signing
             KeyPairGenerator gen = KeyPairGenerator.getInstance("RSA");
             gen.initialize(2048);
-            KeyPair keyPair = gen.generateKeyPair();
+            KeyPair signingKeyPair = gen.generateKeyPair();
 
-            // Create RSA JWK
-            rsaKey = new RSAKey.Builder((RSAPublicKey) keyPair.getPublic())
-                    .privateKey((RSAPrivateKey) keyPair.getPrivate())
+            signingKey = new RSAKey.Builder((RSAPublicKey) signingKeyPair.getPublic())
+                    .privateKey((RSAPrivateKey) signingKeyPair.getPrivate())
                     .keyID(UUID.randomUUID().toString())
                     .build();
 
-            signer = new RSASSASigner(rsaKey);
+            signer = new RSASSASigner(signingKey);
+
+            // Generate RSA key pair for encryption
+            KeyPair encryptionKeyPair = gen.generateKeyPair();
+
+            encryptionKey = new RSAKey.Builder((RSAPublicKey) encryptionKeyPair.getPublic())
+                    .privateKey((RSAPrivateKey) encryptionKeyPair.getPrivate())
+                    .keyID(UUID.randomUUID().toString())
+                    .build();
+
+            encrypter = new RSAEncrypter(encryptionKey);
 
         } catch (NoSuchAlgorithmException | JOSEException e) {
             throw new RuntimeException("Failed to initialize RSA keys", e);
         }
     }
 
+    /**
+     * Security configuration for mock server - permit all requests
+     */
+    @Bean
+    public SecurityFilterChain mockServerSecurityFilterChain(HttpSecurity http) throws Exception {
+        http
+                .securityMatcher("/**")
+                .authorizeHttpRequests(authz -> authz
+                        .anyRequest().permitAll()
+                )
+                .csrf(csrf -> csrf.disable());
+        return http.build();
+    }
+
     @GetMapping(value = "/.well-known/jwks.json", produces = MediaType.APPLICATION_JSON_VALUE)
     public String jwks() {
         try {
-            JWKSet jwkSet = new JWKSet(rsaKey.toPublicJWK());
+            // Only expose the public keys for signature verification
+            JWKSet jwkSet = new JWKSet(signingKey.toPublicJWK());
             return jwkSet.toString();
         } catch (Exception e) {
             throw new RuntimeException("Failed to generate JWKS JSON", e);
         }
+    }
+
+    @GetMapping(value = "/.well-known/openid-configuration", produces = MediaType.APPLICATION_JSON_VALUE)
+    public String openidConfiguration() {
+        String baseUrl = "http://localhost:" + serverPort;
+        return String.format("""
+            {
+              "issuer": "%s",
+              "authorization_endpoint": "%s/oauth/authorize",
+              "token_endpoint": "%s/oauth/token",
+              "jwks_uri": "%s/.well-known/jwks.json",
+              "response_types_supported": ["code", "token"],
+              "subject_types_supported": ["public"],
+              "id_token_signing_alg_values_supported": ["RS256"],
+              "scopes_supported": ["openid", "phone", "number-verification:verify", "number-verification:device-phone-number:read"]
+            }
+            """, baseUrl, baseUrl, baseUrl, baseUrl);
     }
 
     public void start() {
@@ -103,53 +146,73 @@ public class MockAuthorizationServer {
     }
 
     /**
-     * Generate a valid JWT token with the given phone number claim, scope and audience.
+     * Generate a valid JWT token with the given phone number, scope, and audience.
+     * The phone number is encrypted as a JWE and placed in the subject claim.
      */
     public String generateValidToken(String phoneNumber, String scope, String audience) {
-        return generateToken(
-                phoneNumber,
-                300,
-                scope,
-                audience);
+        return generateToken(phoneNumber, scope, audience, 3600); // Valid for 1 hour
     }
 
     /**
      * Generate an expired JWT token.
      */
     public String generateExpiredToken(String phoneNumber, String scope, String audience) {
-        return generateToken(phoneNumber,
-                -300,
-                scope,
-                audience);
+        return generateToken(phoneNumber, scope, audience, -3600); // Expired 1 hour ago
+    }
+
+    /**
+     * Encrypt phone number as JWE to be used in the subject claim.
+     */
+    private String encryptPhoneNumber(String phoneNumber) {
+        try {
+            // Create JWT claims for the phone number
+            JWTClaimsSet phoneNumberClaims = new JWTClaimsSet.Builder()
+                    .claim("phone_number", phoneNumber)
+                    .build();
+
+            // Create JWE object with phone number
+            JWEHeader jweHeader = new JWEHeader.Builder(JWEAlgorithm.RSA_OAEP_256, EncryptionMethod.A128GCM)
+                    .build();
+
+            EncryptedJWT encryptedJWT = new EncryptedJWT(jweHeader, phoneNumberClaims);
+
+            // Encrypt the JWT
+            encryptedJWT.encrypt(encrypter);
+
+            return encryptedJWT.serialize();
+
+        } catch (JOSEException e) {
+            throw new RuntimeException("Failed to encrypt phone number", e);
+        }
     }
 
     /**
      * Generate a JWT token with custom expiration.
+     * The subject contains a JWE-encrypted phone number.
      */
-    private String generateToken(
-            String phoneNumber,
-            long expiresInSeconds,
-            String scope,
-            String audience) {
+    private String generateToken(String phoneNumber, String scope, String audience, long expiresInSeconds) {
         try {
             Instant now = Instant.now();
 
-            JWTClaimsSet subjectClaimSet = new JWTClaimsSet.Builder().claim("phone_number", phoneNumber).build();
+            // Encrypt the phone number for the subject claim
+            String encryptedPhoneNumber = encryptPhoneNumber(phoneNumber);
 
-            String subject = encryptSubject(subjectClaimSet);
+            // Build the access token claims
             JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
-                    .subject(subject)
+                    .subject(encryptedPhoneNumber)
                     .issuer("http://localhost:" + serverPort)
-                    .audience(audience)
+                    .audience("http://localhost:" + serverPort + audience)
                     .expirationTime(Date.from(now.plusSeconds(expiresInSeconds)))
+                    .notBeforeTime(Date.from(now))
                     .issueTime(Date.from(now))
                     .jwtID(UUID.randomUUID().toString())
                     .claim("scope", scope)
                     .build();
 
+            // Sign the JWT
             SignedJWT signedJWT = new SignedJWT(
                     new JWSHeader.Builder(JWSAlgorithm.RS256)
-                            .keyID(rsaKey.getKeyID())
+                            .keyID(signingKey.getKeyID())
                             .build(),
                     claimsSet);
 
@@ -162,15 +225,14 @@ public class MockAuthorizationServer {
         }
     }
 
-    private String encryptSubject(JWTClaimsSet jwtClaimsSet) throws JOSEException {
-        RSAEncrypter encrypter = new RSAEncrypter(rsaKey.toRSAPublicKey());
-        JWEHeader header = new JWEHeader(
-                JWEAlgorithm.RSA_OAEP_256,
-                EncryptionMethod.A128GCM
-        );
-        EncryptedJWT jwt = new EncryptedJWT(header, jwtClaimsSet);
-        jwt.encrypt(encrypter);
-
-        return jwt.serialize();
+    /**
+     * Get the public encryption key for use by the resource server to decrypt JWEs.
+     */
+    public RSAKey getPublicEncryptionKey() {
+        try {
+            return encryptionKey.toPublicJWK();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to get public encryption key", e);
+        }
     }
 }
