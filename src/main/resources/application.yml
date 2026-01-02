@@ -11,8 +11,8 @@ spring:
       resourceserver:
         jwt:
           # Telekom MACE Authorization Server configuration
-          issuer-uri: https://auth.api.telekom.com/realms/dtmace
-          jwk-set-uri: https://auth.api.telekom.com/realms/dtmace/protocol/openid-connect/certs
+          issuer-uri: http://localhost:62708/
+          jwk-set-uri: http://localhost:62708/.well-known/jwks.json
 
 jwe:
   decryption:
