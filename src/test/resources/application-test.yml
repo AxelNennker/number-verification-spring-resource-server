@@ -13,14 +13,16 @@ spring:
           jwk-set-uri: http://localhost:18080/jwks
 
 jwe:
+  key-algorithm: RSA-OAEP-256
+  content-algorithm: A256GCM
+  encryption:
+    public-key-path: /opt/CAMARA/resourceservers/numberverification/public-key.pem
   decryption:
     # create this file before running
     # sudo mkdir -p /opt/CAMARA/resourceservers/numberverification/
     # sudo chown -R ${whoami} /opt/CAMARA/
     # sudo genrsa -out /opt/CAMARA/resourceservers/numberverification/private-key.pem
     private-key-path: /opt/CAMARA/resourceservers/numberverification/private-key.pem
-    key-algorithm: RSA-OAEP-256
-    content-algorithm: A256GCM
 
 logging:
   level:
