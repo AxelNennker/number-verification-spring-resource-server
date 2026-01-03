@@ -1,7 +1,7 @@
 server:
   port: 8080
   servlet:
-    context-path: /number-verification/vwip
+    context-path: /number-verification/v2
 
 spring:
   application:
@@ -16,12 +16,14 @@ spring:
 
 jwe:
   decryption:
-    # Path to the private key for JWE decryption (PKCS#8 format)
-    private-key-path: ${JWE_PRIVATE_KEY_PATH:classpath:keys/jwe-private-key.pem}
-    # Algorithm used for key encryption
-    key-algorithm: ${JWE_KEY_ALGORITHM:RSA-OAEP-256}
+    # create this file before running
+    # sudo mkdir -p /opt/CAMARA/resourceservers/numberverification/
+    # sudo chown -R ${whoami} /opt/CAMARA/
+    # sudo genrsa -out /opt/CAMARA/resourceservers/numberverification/private-key.pem
+    private-key-path: ${CAMARA_NUMBERVERIFICATION_RESOURCESERVER_PRIVATE_KEY_PATH:/opt/CAMARA/resourceservers/numberverification/private-key.pem}
+    key-algorithm: ${CAMARA_NUMBERVERIFICATION_RESOURCESERVER_KEY_ALGORITHM:RSA-OAEP-256}
     # Algorithm used for content encryption
-    content-algorithm: ${JWE_CONTENT_ALGORITHM:A256GCM}
+    content-algorithm: ${CAMARA_NUMBERVERIFICATION_RESOURCESERVER_CONTENT_ALGORITHM:A256GCM}
 
 logging:
   level:

@@ -1,5 +1,9 @@
 package com.telekom.camara.integration;
 
+import com.nimbusds.jose.crypto.RSAEncrypter;
+import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
+import org.bouncycastle.openssl.PEMParser;
+import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -7,10 +11,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+
+import java.io.*;
+import java.security.interfaces.RSAPublicKey;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -18,15 +27,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
-
-import org.springframework.test.context.ActiveProfiles;
-
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import({NumberVerificationIntegrationTest.MockAuthServerConfig.class, TestJweDecryptionConfig.class})
+@Import({NumberVerificationIntegrationTest.MockAuthServerConfig.class})
 class NumberVerificationIntegrationTest {
 
     @Autowired
@@ -43,16 +47,46 @@ class NumberVerificationIntegrationTest {
     }
 
     @BeforeAll
-    static void setupKeys() {
+    static void setupKeys() throws FileNotFoundException {
         // Start the mock authorization server before all tests
         mockAuthServer = new MockAuthorizationServer();
-        mockAuthServer.start();
+
+        RSAPublicKey rsaPublicKey = readPublicKey();
+        mockAuthServer.start(0, new RSAEncrypter(rsaPublicKey));
 
         System.out.println("=".repeat(60));
         System.out.println("Mock Authorization Server started");
         System.out.println("Port: " + mockAuthServer.getPort());
         System.out.println("JWKS URL: " + mockAuthServer.getJwksUrl());
         System.out.println("=".repeat(60));
+    }
+
+    static RSAPublicKey readRsaPublicKeyFromFile(File file) throws IOException {
+        try (FileReader keyReader = new FileReader(file)) {
+            PEMParser pemParser = new PEMParser(keyReader);
+            JcaPEMKeyConverter converter = new JcaPEMKeyConverter();
+            SubjectPublicKeyInfo publicKeyInfo = SubjectPublicKeyInfo.getInstance(pemParser.readObject());
+            return (RSAPublicKey) converter.getPublicKey(publicKeyInfo);
+        }
+    }
+
+    static RSAPublicKey readPublicKey() throws FileNotFoundException {
+        String publicKeyPath = "/opt/CAMARA/resourceservers/numberverification/public-key.pem";
+
+        File file = new File(publicKeyPath);
+        if (!file.exists()) {
+            throw new IllegalStateException("JWE public key file not found");
+        }
+        try (FileInputStream fis = new FileInputStream(file)) {
+            System.out.println("Loading JWE encryption public key from: " + file.getAbsolutePath());
+
+            RSAPublicKey publicKey = readRsaPublicKeyFromFile(file);
+
+            System.out.println("JWE encrypter initialized successfully with algorithm: " + publicKey.getAlgorithm());
+            return publicKey;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @AfterAll

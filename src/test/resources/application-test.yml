@@ -14,8 +14,11 @@ spring:
 
 jwe:
   decryption:
-    # Leave empty - will use bean from TestJweDecryptionConfig instead
-    private-key-path: ""
+    # create this file before running
+    # sudo mkdir -p /opt/CAMARA/resourceservers/numberverification/
+    # sudo chown -R ${whoami} /opt/CAMARA/
+    # sudo genrsa -out /opt/CAMARA/resourceservers/numberverification/private-key.pem
+    private-key-path: /opt/CAMARA/resourceservers/numberverification/private-key.pem
     key-algorithm: RSA-OAEP-256
     content-algorithm: A256GCM
 

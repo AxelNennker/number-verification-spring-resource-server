@@ -1,11 +1,21 @@
 package com.telekom.camara.integration;
 
+import com.nimbusds.jose.crypto.RSAEncrypter;
+
+import java.io.FileNotFoundException;
+import java.security.interfaces.RSAPublicKey;
+
+import static com.telekom.camara.integration.NumberVerificationIntegrationTest.readPublicKey;
+
 public class MockAuthServerRunner {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws FileNotFoundException {
         int port = args.length > 0 ? Integer.parseInt(args[0]) : 8090;
 
         MockAuthorizationServer server = new MockAuthorizationServer();
-        server.start(port);
+
+        RSAPublicKey rsaPublicKey = readPublicKey();
+        RSAEncrypter rsaEncrypter =new RSAEncrypter(rsaPublicKey);
+        server.start(port, rsaEncrypter);
 
         System.out.println("\n" + "=".repeat(80));
         System.out.println("Mock Authorization Server started successfully!");
@@ -13,9 +23,6 @@ public class MockAuthServerRunner {
         System.out.println("Port:                " + server.getPort());
         System.out.println("JWKS URL:            " + server.getJwksUrl());
         System.out.println("OpenID Config:       http://localhost:" + server.getPort() + "/.well-known/openid-configuration");
-        System.out.println();
-        System.out.println("Public Encryption Key (for resource server configuration):");
-        System.out.println(server.getPublicEncryptionKey().toJSONString());
         System.out.println();
         System.out.println("Example token generation:");
         System.out.println("  String token = server.generateValidToken(");

@@ -1,76 +1,85 @@
 package com.telekom.camara.config;
 
-import com.nimbusds.jose.JWEAlgorithm;
-import com.nimbusds.jose.JWEDecrypter;
+import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.crypto.RSADecrypter;
-import lombok.extern.slf4j.Slf4j;
+import com.nimbusds.jose.jwk.RSAKey;
 import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
 import org.bouncycastle.openssl.PEMKeyPair;
 import org.bouncycastle.openssl.PEMParser;
 import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.io.Resource;
 
-import java.io.InputStreamReader;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.security.PrivateKey;
 import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.RSAPublicKey;
 
-/**
- * Configuration for JWE (JSON Web Encryption) decryption.
- */
 @Configuration
-@Slf4j
 public class JweDecryptionConfig {
 
-    @Value("${jwe.decryption.private-key-path}")
-    private Resource privateKeyResource;
+    private static final Logger logger = LoggerFactory.getLogger(JweDecryptionConfig.class);
 
-    @Value("${jwe.decryption.key-algorithm}")
-    private String keyAlgorithm;
+    @Value("${camara.jwe.decryption.private-key-path:/opt/CAMARA/resourceservers/numberverification/private-key.pem}")
+    private String privateKeyPath;
 
+    /**
+     * Creates RSADecrypter bean only when the private key path is configured.
+     * In tests, this bean will be overridden by @Primary bean from TestJweDecryptionConfig.
+     */
     @Bean
-    public JWEDecrypter jweDecrypter() {
-        try {
-            log.info("Loading JWE decryption private key from: {}", privateKeyResource.getDescription());
-            
-            RSAPrivateKey privateKey = loadPrivateKey();
-            
-            // Verify the key algorithm is supported
-            JWEAlgorithm algorithm = JWEAlgorithm.parse(keyAlgorithm);
-            if (!algorithm.equals(JWEAlgorithm.RSA_OAEP_256) && 
-                !algorithm.equals(JWEAlgorithm.RSA_OAEP) &&
-                !algorithm.equals(JWEAlgorithm.RSA1_5)) {
-                throw new IllegalArgumentException("Unsupported JWE key algorithm: " + keyAlgorithm);
-            }
-            
-            RSADecrypter decrypter = new RSADecrypter(privateKey);
-            log.info("JWE decrypter initialized successfully with algorithm: {}", keyAlgorithm);
-            
-            return decrypter;
-            
-        } catch (Exception e) {
-            log.error("Failed to initialize JWE decrypter", e);
-            throw new IllegalStateException("Could not load JWE decryption key", e);
+    public RSADecrypter jweDecrypter() throws IOException, JOSEException {
+        if (privateKeyPath == null) {
+            throw new IllegalStateException("JWE private key file not configured");
+        }
+        File file = new File(privateKeyPath);
+        if (!file.exists()) {
+            throw new IllegalStateException("JWE private key file not found");
+        }
+        try (FileInputStream fis = new FileInputStream(file)) {
+            logger.info("Loading JWE decryption private key from: {}", file.getAbsolutePath());
+
+            String pemContent = new String(fis.readAllBytes(), StandardCharsets.UTF_8);
+            RSAPrivateKey privateKey = loadPrivateKeyFromPEM(pemContent);
+
+            logger.info("JWE decrypter initialized successfully with algorithm: {}}", privateKey.getAlgorithm());
+            return new RSADecrypter(privateKey);
         }
     }
 
-    private RSAPrivateKey loadPrivateKey() throws Exception {
-        try (PEMParser pemParser = new PEMParser(
-                new InputStreamReader(privateKeyResource.getInputStream(), StandardCharsets.UTF_8))) {
-            
+//    private RSAPrivateKey loadPrivateKeyFromPEM(String pemContent) throws IOException {
+//        try {
+//            String privateKeyPEM = pemContent
+//                    .replace("-----BEGIN PRIVATE KEY-----", "")
+//                    .replace("-----END PRIVATE KEY-----", "")
+//                    .replaceAll("\\s", "");
+//
+//            byte[] encoded = java.util.Base64.getDecoder().decode(privateKeyPEM);
+//            java.security.KeyFactory keyFactory = java.security.KeyFactory.getInstance("RSA");
+//            java.security.spec.PKCS8EncodedKeySpec keySpec = new java.security.spec.PKCS8EncodedKeySpec(encoded);
+//            return (RSAPrivateKey) keyFactory.generatePrivate(keySpec);
+//        } catch (Exception e) {
+//            throw new IOException("Failed to load private key from PEM", e);
+//        }
+//    }
+
+    private RSAPrivateKey loadPrivateKeyFromPEM(String pemContent) {
+        try (PEMParser pemParser = new PEMParser(new StringReader(pemContent))) {
             Object object = pemParser.readObject();
+
             PrivateKeyInfo privateKeyInfo;
-            
             if (object instanceof PrivateKeyInfo) {
                 privateKeyInfo = (PrivateKeyInfo) object;
             } else if (object instanceof PEMKeyPair) {
-                privateKeyInfo = ((PEMKeyPair) object).getPrivateKeyInfo();
+                PEMKeyPair pemKeyPair = (PEMKeyPair) object;
+                privateKeyInfo = pemKeyPair.getPrivateKeyInfo();
             } else {
                 throw new IllegalArgumentException(
-                    "Expected PrivateKeyInfo but got: " + object.getClass().getName());
+                        "Expected PrivateKeyInfo or PEMKeyPair but got: " + object.getClass().getName());
             }
             JcaPEMKeyConverter converter = new JcaPEMKeyConverter();
             PrivateKey privateKey = converter.getPrivateKey(privateKeyInfo);
@@ -80,6 +89,10 @@ public class JweDecryptionConfig {
             }
 
             return (RSAPrivateKey) privateKey;
+
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load private key from PEM", e);
         }
     }
+
 }

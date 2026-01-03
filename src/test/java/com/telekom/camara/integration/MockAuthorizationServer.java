@@ -59,17 +59,6 @@ public class MockAuthorizationServer {
                     .build();
 
             signer = new RSASSASigner(signingKey);
-
-            // Generate RSA key pair for encryption
-            KeyPair encryptionKeyPair = gen.generateKeyPair();
-
-            encryptionKey = new RSAKey.Builder((RSAPublicKey) encryptionKeyPair.getPublic())
-                    .privateKey((RSAPrivateKey) encryptionKeyPair.getPrivate())
-                    .keyID(UUID.randomUUID().toString())
-                    .build();
-
-            encrypter = new RSAEncrypter(encryptionKey);
-
         } catch (NoSuchAlgorithmException | JOSEException e) {
             throw new RuntimeException("Failed to initialize RSA keys", e);
         }
@@ -117,11 +106,8 @@ public class MockAuthorizationServer {
             """, baseUrl, baseUrl, baseUrl, baseUrl);
     }
 
-    public void start() {
-        start(0); // Random port
-    }
-
-    public void start(int port) {
+    public void start(int port, RSAEncrypter rsaEncrypter) {
+        encrypter = rsaEncrypter;
         SpringApplication app = new SpringApplication(MockAuthorizationServer.class);
         app.setDefaultProperties(java.util.Map.of(
                 "server.port", port == 0 ? "0" : String.valueOf(port),
@@ -226,26 +212,4 @@ public class MockAuthorizationServer {
         }
     }
 
-    /**
-     * Get the public encryption key for use by the resource server to decrypt JWEs.
-     */
-    public RSAKey getPublicEncryptionKey() {
-        try {
-            return encryptionKey.toPublicJWK();
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to get public encryption key", e);
-        }
-    }
-
-    /**
-     * Get an RSADecrypter configured with the private encryption key for testing.
-     * This allows the resource server to decrypt JWEs during integration tests.
-     */
-    public RSADecrypter getJweDecrypter() {
-        try {
-            return new RSADecrypter(encryptionKey);
-        } catch (JOSEException e) {
-            throw new RuntimeException("Failed to create JWE decrypter", e);
-        }
-    }
 }
