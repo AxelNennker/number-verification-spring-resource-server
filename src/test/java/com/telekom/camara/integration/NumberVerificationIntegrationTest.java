@@ -21,9 +21,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 
+import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@ActiveProfiles("test")
 @Import({NumberVerificationIntegrationTest.MockAuthServerConfig.class, TestJweDecryptionConfig.class})
 class NumberVerificationIntegrationTest {
 
@@ -67,6 +69,8 @@ class NumberVerificationIntegrationTest {
         // Configure the application to use the mock authorization server's JWKS endpoint
         registry.add("spring.security.oauth2.resourceserver.jwt.jwk-set-uri",
                 () -> mockAuthServer.getJwksUrl());
+        registry.add("spring.security.oauth2.resourceserver.jwt.issuer-uri",
+                () -> "http://localhost:" + mockAuthServer.getPort() + "/");
     }
 
     @Test
@@ -104,7 +108,8 @@ class NumberVerificationIntegrationTest {
         mockMvc.perform(get("/device-phone-number")
                         .with(csrf())
                         .header("Authorization", "Bearer " + validToken)
-                        .contentType("application/json"))
+                        .contentType("application/json")
+                        .content("{}"))
                 .andExpect(status().isBadRequest());
     }
 

@@ -14,7 +14,8 @@ spring:
 
 jwe:
   decryption:
-    private-key-path: classpath:test-keys/jwe-private-key.pem
+    # Leave empty - will use bean from TestJweDecryptionConfig instead
+    private-key-path: ""
     key-algorithm: RSA-OAEP-256
     content-algorithm: A256GCM
 
