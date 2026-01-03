@@ -11,8 +11,8 @@ spring:
       resourceserver:
         jwt:
           # Telekom MACE Authorization Server configuration
-          issuer-uri: http://localhost:62708/
-          jwk-set-uri: http://localhost:62708/.well-known/jwks.json
+          issuer-uri: http://localhost:57383/
+          jwk-set-uri: http://localhost:57383/.well-known/jwks.json
 
 jwe:
   decryption:

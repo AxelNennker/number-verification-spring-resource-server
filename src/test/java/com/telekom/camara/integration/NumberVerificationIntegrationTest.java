@@ -66,7 +66,7 @@ class NumberVerificationIntegrationTest {
         registry.add("spring.security.oauth2.resourceserver.jwt.jwk-set-uri",
                 () -> mockAuthServer.getJwksUrl());
         registry.add("spring.security.oauth2.resourceserver.jwt.issuer-uri",
-                () -> "http://localhost:" + mockAuthServer.getPort());
+                () -> "http://localhost:" + mockAuthServer.getPort() + "/");
     }
 
     @Test

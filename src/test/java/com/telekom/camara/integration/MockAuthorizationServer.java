@@ -102,13 +102,13 @@ public class MockAuthorizationServer {
 
     @GetMapping(value = "/.well-known/openid-configuration", produces = MediaType.APPLICATION_JSON_VALUE)
     public String openidConfiguration() {
-        String baseUrl = "http://localhost:" + serverPort;
+        String baseUrl = "http://localhost:" + serverPort + "/";
         return String.format("""
             {
               "issuer": "%s",
-              "authorization_endpoint": "%s/oauth/authorize",
-              "token_endpoint": "%s/oauth/token",
-              "jwks_uri": "%s/.well-known/jwks.json",
+              "authorization_endpoint": "%soauth/authorize",
+              "token_endpoint": "%soauth/token",
+              "jwks_uri": "%s.well-known/jwks.json",
               "response_types_supported": ["code", "token"],
               "subject_types_supported": ["public"],
               "id_token_signing_alg_values_supported": ["RS256"],
@@ -201,7 +201,7 @@ public class MockAuthorizationServer {
             // Build the access token claims
             JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
                     .subject(encryptedPhoneNumber)
-                    .issuer("http://localhost:" + serverPort)
+                    .issuer("http://localhost:" + serverPort + "/")
                     .audience("http://localhost:" + serverPort + audience)
                     .expirationTime(Date.from(now.plusSeconds(expiresInSeconds)))
                     .notBeforeTime(Date.from(now))
