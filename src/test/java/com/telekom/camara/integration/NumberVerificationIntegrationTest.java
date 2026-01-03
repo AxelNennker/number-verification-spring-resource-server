@@ -13,12 +13,14 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -65,8 +67,6 @@ class NumberVerificationIntegrationTest {
         // Configure the application to use the mock authorization server's JWKS endpoint
         registry.add("spring.security.oauth2.resourceserver.jwt.jwk-set-uri",
                 () -> mockAuthServer.getJwksUrl());
-        registry.add("spring.security.oauth2.resourceserver.jwt.issuer-uri",
-                () -> "http://localhost:" + mockAuthServer.getPort() + "/");
     }
 
     @Test
@@ -88,11 +88,9 @@ class NumberVerificationIntegrationTest {
         String phoneNumber = "+1234567890";
         String validToken = mockAuthServer.generateValidToken(phoneNumber, "number-verification:device-phone-number:read", "/device-phone-number");
 
-        mockMvc.perform(post("/device-phone-number")
-                        .with(csrf())
+        mockMvc.perform(get("/device-phone-number")
                         .header("Authorization", "Bearer " + validToken)
-                        .contentType("application/json")
-                        .content("{}"))
+                        .contentType("application/json"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.phoneNumber").value(phoneNumber));
     }
@@ -103,11 +101,10 @@ class NumberVerificationIntegrationTest {
         // Token has device-phone-number:read scope but wrong audience path
         String validToken = mockAuthServer.generateValidToken(phoneNumber, "number-verification:device-phone-number:read", "/verify");
 
-        mockMvc.perform(post("/device-phone-number")
+        mockMvc.perform(get("/device-phone-number")
                         .with(csrf())
                         .header("Authorization", "Bearer " + validToken)
-                        .contentType("application/json")
-                        .content("{}"))
+                        .contentType("application/json"))
                 .andExpect(status().isBadRequest());
     }
 
@@ -116,11 +113,9 @@ class NumberVerificationIntegrationTest {
         String phoneNumber = "+1234567890";
         String validToken = mockAuthServer.generateValidToken(phoneNumber, "bogus-scope", "/device-phone-number");
 
-        mockMvc.perform(post("/device-phone-number")
-                        .with(csrf())
+        mockMvc.perform(get("/device-phone-number")
                         .header("Authorization", "Bearer " + validToken)
-                        .contentType("application/json")
-                        .content("{}"))
+                        .contentType("application/json"))
                 .andExpect(status().isBadRequest());
     }
 
