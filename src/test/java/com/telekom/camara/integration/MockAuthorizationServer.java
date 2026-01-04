@@ -118,13 +118,17 @@ public class MockAuthorizationServer {
     public void start(int port, RSAEncrypter rsaEncrypter) {
         encrypter = rsaEncrypter;
         SpringApplication app = new SpringApplication(MockAuthorizationServer.class);
+        String serverPort = port == 0 ? "0" : String.valueOf(port);
         app.setDefaultProperties(java.util.Map.of(
-                "server.port", port == 0 ? "0" : String.valueOf(port),
+                "server.port", serverPort,
                 "logging.level.root", "ERROR",
                 "logging.level.com.telekom.camara.integration.MockAuthorizationServer", "INFO"
         ));
-        context = app.run();
-        serverPort = Integer.parseInt(context.getEnvironment().getProperty("local.server.port"));
+        context = app.run(
+                "--server.port=" + serverPort,
+                "--server.servlet.context-path=/"
+        );
+        MockAuthorizationServer.serverPort = Integer.parseInt(context.getEnvironment().getProperty("local.server.port"));
     }
 
     public void shutdown() {
