@@ -1,6 +1,10 @@
 server:
   port: 0
 
+mock:
+  server:
+    port=0:
+
 spring:
   application:
     name: number-verification-api-test

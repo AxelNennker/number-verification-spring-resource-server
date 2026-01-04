@@ -11,6 +11,8 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.tomcat.servlet.TomcatServletWebServerFactory;
+import org.springframework.boot.web.server.servlet.ServletWebServerFactory;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -62,6 +64,13 @@ public class MockAuthorizationServer {
         } catch (NoSuchAlgorithmException | JOSEException e) {
             throw new RuntimeException("Failed to initialize RSA keys", e);
         }
+    }
+
+    @Bean
+    public ServletWebServerFactory servletWebServerFactory() {
+        TomcatServletWebServerFactory factory = new TomcatServletWebServerFactory();
+        factory.setPort(0); // Use random available port
+        return factory;
     }
 
     /**
