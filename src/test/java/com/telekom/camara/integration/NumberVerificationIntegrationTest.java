@@ -32,9 +32,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Import({NumberVerificationIntegrationTest.MockAuthServerConfig.class})
-@TestPropertySource(properties = {
-        "spring.security.oauth2.resourceserver.jwt.issuer-uri=http://localhost:${mock.auth.server.port}/"
-})
 class NumberVerificationIntegrationTest {
 
     @Autowired
